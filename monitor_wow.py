@@ -7,6 +7,7 @@ import pytz
 URL = "https://www.headachesound.com/woworder/wow-flutter-machine"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "5022930235")
+DAILY_REPORT       = os.environ.get("DAILY_REPORT", "false").lower() == "true"
 HK_TZ = pytz.timezone("Asia/Hong_Kong")
 HEADERS = {
     "User-Agent": (
@@ -53,42 +54,53 @@ def check_availability():
         "is_available": is_available,
         "availability_meta": availability_meta,
         "title": title.strip(),
-        "title_soldout": title_soldout,
     }
 
 def main():
     now_hk = datetime.now(HK_TZ).strftime("%Y-%m-%d %H:%M HKT")
-    print(f"[{now_hk}] Checking WOW Machine stock...")
+    print(f"[{now_hk}] Checking WOW Machine stock... (daily_report={DAILY_REPORT})")
 
     try:
         result = check_availability()
     except Exception as e:
         err_msg = (
-            f"ERROR WOW Monitor\n"
-            f"Time: {now_hk}\n"
-            f"Error: {e}\n"
-            f"URL: {URL}"
+            f"⚠️ WOW Monitor 오류\n"
+            f"시간: {now_hk}\n"
+            f"오류: {e}"
         )
         print(f"[ERROR] {e}")
         send_telegram(err_msg)
         return
 
-    print(f"  availability_meta : {result['availability_meta']}")
-    print(f"  title_soldout     : {result['title_soldout']}")
-    print(f"  is_available      : {result['is_available']}")
+    print(f"  availability : {result['availability_meta']}")
+    print(f"  is_available : {result['is_available']}")
 
     if result["is_available"]:
+        # 재입고 감지 → 즉시 알림
         msg = (
-            "MIDNIGHT WOW MACHINE 재입고!\n\n"
-            f"Time: {now_hk}\n"
-            f"Status: AVAILABLE\n"
-            f"Link: {URL}\n\n"
-            "빨리 들어가세요!"
+            "🔴 MIDNIGHT WOW MACHINE 재입고!\n\n"
+            f"⏰ {now_hk}\n"
+            f"📦 Status: AVAILABLE\n"
+            f"🔗 {URL}\n\n"
+            "⚡ 지금 바로 들어가세요!"
         )
         send_telegram(msg)
-        print("[ALERT] Restock detected!")
+        print("[ALERT] Restock detected — Telegram sent!")
+
+    elif DAILY_REPORT:
+        # 매일 08:00 HKT 상태 리포트 (솔드아웃 유지 중)
+        msg = (
+            "📋 WOW Machine 일일 리포트\n\n"
+            f"⏰ {now_hk}\n"
+            f"📦 Status: SOLD OUT\n"
+            f"🔗 {URL}\n\n"
+            "모니터링 정상 작동 중 ✅"
+        )
+        send_telegram(msg)
+        print("[DAILY] Status report sent.")
+
     else:
-        print("Still SOLD OUT. No notification sent.")
+        print("Still SOLD OUT. No notification.")
 
 if __name__ == "__main__":
     main()
