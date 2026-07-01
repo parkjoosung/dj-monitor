@@ -2,7 +2,11 @@ name: WOW Machine Restock Monitor
 
 on:
   schedule:
+    # 매일 HKT 08:00 일일 리포트 (UTC 00:00)
+    - cron: "0 0 * * *"
+    # HKT 09:00~00:30 매 30분마다 재입고 체크
     - cron: "0,30 1-16 * * *"
+
   workflow_dispatch:
 
 jobs:
@@ -22,8 +26,18 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4 pytz
 
-      - name: Run WOW monitor
+      - name: Run WOW monitor (daily 08:00 HKT report)
+        if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DAILY_REPORT: "true"
+        run: python monitor_wow.py
+
+      - name: Run WOW monitor (30min restock check)
+        if: github.event.schedule == '0,30 1-16 * * *'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DAILY_REPORT: "false"
         run: python monitor_wow.py
